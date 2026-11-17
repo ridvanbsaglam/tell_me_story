@@ -1,0 +1,4 @@
+﻿name: tell_me_story
+logs:
+  file: build/rive.log
+  problems: build/problems.log

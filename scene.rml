@@ -1,0 +1,98 @@
+<Rive version="1" kind="fragment">
+  <Artboard name="TellMe" width="1280" height="720" defaultStateMachineId="0:7" styleId="0:5" id="0:2">
+    <LayoutComponentStyle name="Artboard Style" id="0:5" />
+    <LayoutComponent width="1280" height="720" styleId="0:11" name="Stage" id="0:10">
+      <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" widthUnitsValue="auto" heightUnitsValue="auto" name="Stage Style" id="0:11" />
+      <ScriptedLayout scriptAssetId="0:80" name="Game" id="0:12"><FocusData /></ScriptedLayout>
+    </LayoutComponent>
+    <LinearAnimation name="Idle" fps="60" duration="60" loopValue="loop" id="0:6" />
+    <StateMachine name="Main" id="0:7"><StateMachineLayer name="Base" id="0:8">
+      <AnyState x="200" y="-120" /><ExitState x="400" y="-120" />
+      <EntryState x="0" y="0" id="0:9"><StateTransition stateToId="0:13" /></EntryState>
+      <AnimationState x="200" y="0" animationId="0:6" id="0:13">
+        <FocusActionTarget targetId="0:12" />
+      </AnimationState>
+    </StateMachineLayer></StateMachine>
+  </Artboard>
+  <FontAsset file="PatrickHand-Regular.ttf" name="Bold" id="0:30" />
+  <FontAsset file="PatrickHand-Regular.ttf" name="Medium" id="0:31" />
+  <ScriptAsset file="cards_data.luau" isModule="true" name="cards_data" id="0:81" />
+  <ScriptAsset file="main.luau" name="main" id="0:80" />
+  <ImageAsset file="img/ui_title.png" name="ui_title" id="1:1" />
+  <ImageAsset file="img/lvl_rookie.png" name="lvl_rookie" id="1:2" />
+  <ImageAsset file="img/lvl_expert.png" name="lvl_expert" id="1:3" />
+  <ImageAsset file="img/lvl_master.png" name="lvl_master" id="1:4" />
+  <ImageAsset file="img/lvl_guru.png" name="lvl_guru" id="1:5" />
+  <ImageAsset file="img/ui_home.png" name="ui_home" id="1:6" />
+  <ImageAsset file="img/ui_repeat.png" name="ui_repeat" id="1:7" />
+  <ImageAsset file="img/ui_question.png" name="ui_question" id="1:8" />
+  <ImageAsset file="img/c1_alien.png" name="c1_alien" id="1:9" />
+  <ImageAsset file="img/c1_astronaut.png" name="c1_astronaut" id="1:10" />
+  <ImageAsset file="img/c1_basketball_player.png" name="c1_basketball_player" id="1:11" />
+  <ImageAsset file="img/c1_biography.png" name="c1_biography" id="1:12" />
+  <ImageAsset file="img/c1_boss.png" name="c1_boss" id="1:13" />
+  <ImageAsset file="img/c1_dress.png" name="c1_dress" id="1:14" />
+  <ImageAsset file="img/c1_family.png" name="c1_family" id="1:15" />
+  <ImageAsset file="img/c1_festival.png" name="c1_festival" id="1:16" />
+  <ImageAsset file="img/c1_investigate.png" name="c1_investigate" id="1:17" />
+  <ImageAsset file="img/c1_kick.png" name="c1_kick" id="1:18" />
+  <ImageAsset file="img/c1_kung_fu.png" name="c1_kung_fu" id="1:19" />
+  <ImageAsset file="img/c1_mother.png" name="c1_mother" id="1:20" />
+  <ImageAsset file="img/c1_pharmacist.png" name="c1_pharmacist" id="1:21" />
+  <ImageAsset file="img/c1_professions_and_jobs.png" name="c1_professions_and_jobs" id="1:22" />
+  <ImageAsset file="img/c1_rasta.png" name="c1_rasta" id="1:23" />
+  <ImageAsset file="img/c1_receptionist.png" name="c1_receptionist" id="1:24" />
+  <ImageAsset file="img/c1_scientist.png" name="c1_scientist" id="1:25" />
+  <ImageAsset file="img/c1_singer.png" name="c1_singer" id="1:26" />
+  <ImageAsset file="img/c1_student.png" name="c1_student" id="1:27" />
+  <ImageAsset file="img/c1_suspect.png" name="c1_suspect" id="1:28" />
+  <ImageAsset file="img/c1_teacher.png" name="c1_teacher" id="1:29" />
+  <ImageAsset file="img/c1_thief.png" name="c1_thief" id="1:30" />
+  <ImageAsset file="img/c1_wizards.png" name="c1_wizards" id="1:31" />
+  <ImageAsset file="img/c1_work.png" name="c1_work" id="1:32" />
+  <ImageAsset file="img/c2_01.png" name="c2_01" id="1:33" />
+  <ImageAsset file="img/c2_02.png" name="c2_02" id="1:34" />
+  <ImageAsset file="img/c2_03.png" name="c2_03" id="1:35" />
+  <ImageAsset file="img/c2_04.png" name="c2_04" id="1:36" />
+  <ImageAsset file="img/c2_05.png" name="c2_05" id="1:37" />
+  <ImageAsset file="img/c2_06.png" name="c2_06" id="1:38" />
+  <ImageAsset file="img/c2_07.png" name="c2_07" id="1:39" />
+  <ImageAsset file="img/c2_government.png" name="c2_government" id="1:40" />
+  <ImageAsset file="img/c2_mortgage_loan.png" name="c2_mortgage_loan" id="1:41" />
+  <ImageAsset file="img/c2_stadium.png" name="c2_stadium" id="1:42" />
+  <ImageAsset file="img/c3_01.png" name="c3_01" id="1:43" />
+  <ImageAsset file="img/c3_02.png" name="c3_02" id="1:44" />
+  <ImageAsset file="img/c3_03.png" name="c3_03" id="1:45" />
+  <ImageAsset file="img/c3_04.png" name="c3_04" id="1:46" />
+  <ImageAsset file="img/c3_beach.png" name="c3_beach" id="1:47" />
+  <ImageAsset file="img/c3_dust.png" name="c3_dust" id="1:48" />
+  <ImageAsset file="img/c3_earthquake.png" name="c3_earthquake" id="1:49" />
+  <ImageAsset file="img/c3_flood.png" name="c3_flood" id="1:50" />
+  <ImageAsset file="img/c3_park.png" name="c3_park" id="1:51" />
+  <ImageAsset file="img/c3_rain.png" name="c3_rain" id="1:52" />
+  <ImageAsset file="img/c3_storm.png" name="c3_storm" id="1:53" />
+  <ImageAsset file="img/c3_sun.png" name="c3_sun" id="1:54" />
+  <ImageAsset file="img/c3_tsunami.png" name="c3_tsunami" id="1:55" />
+  <ImageAsset file="img/c3_war.png" name="c3_war" id="1:56" />
+  <ImageAsset file="img/c4_bipolar.png" name="c4_bipolar" id="1:57" />
+  <ImageAsset file="img/c4_crocodile.png" name="c4_crocodile" id="1:58" />
+  <ImageAsset file="img/c4_death.png" name="c4_death" id="1:59" />
+  <ImageAsset file="img/c4_fortune_telling.png" name="c4_fortune_telling" id="1:60" />
+  <ImageAsset file="img/c4_scorpion.png" name="c4_scorpion" id="1:61" />
+  <ImageAsset file="img/c4_tent.png" name="c4_tent" id="1:62" />
+  <ImageAsset file="img/c4_thyroid.png" name="c4_thyroid" id="1:63" />
+  <ImageAsset file="img/c4_unicorn.png" name="c4_unicorn" id="1:64" />
+  <ImageAsset file="img/c4_voodoo.png" name="c4_voodoo" id="1:65" />
+  <ImageAsset file="img/c4_whale.png" name="c4_whale" id="1:66" />
+  <ImageAsset file="img/c5_construction_and_tools.png" name="c5_construction_and_tools" id="1:67" />
+  <ImageAsset file="img/c5_evidences.png" name="c5_evidences" id="1:68" />
+  <ImageAsset file="img/c5_handcuff.png" name="c5_handcuff" id="1:69" />
+  <ImageAsset file="img/c5_lighter.png" name="c5_lighter" id="1:70" />
+  <ImageAsset file="img/c5_mat.png" name="c5_mat" id="1:71" />
+  <ImageAsset file="img/c5_mutation.png" name="c5_mutation" id="1:72" />
+  <ImageAsset file="img/c5_scissors.png" name="c5_scissors" id="1:73" />
+  <ImageAsset file="img/c5_sewing_machine.png" name="c5_sewing_machine" id="1:74" />
+  <ImageAsset file="img/c5_sundae.png" name="c5_sundae" id="1:75" />
+  <ImageAsset file="img/c5_vaccine.png" name="c5_vaccine" id="1:76" />
+  <ImageAsset file="img/ui_bg.png" name="ui_bg" id="1:99" />
+</Rive>

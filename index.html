@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tell Me! — A Storytelling Card Game (Rive & Luau)</title>
+  <meta name="description" content="An interactive storytelling card game ported 100% natively to Rive & Luau with hand-drawn watercolor art." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 30%, #17384a 0%, #0d1e29 100%);
+      color: #f7f3e8;
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+    header {
+      text-align: center;
+      max-width: 900px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 3.5rem;
+      letter-spacing: 2px;
+      color: #ffde59;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      font-size: 1.15rem;
+      color: #b8d5e5;
+      margin-bottom: 16px;
+    }
+    .badge-container {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .badge {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2f1f8;
+    }
+    .preview-card {
+      width: 100%;
+      max-width: 1024px;
+      background: #10222e;
+      border: 3px solid #204558;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    .preview-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      max-width: 1024px;
+      width: 100%;
+      margin-bottom: 36px;
+    }
+    .level-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .level-card:hover {
+      transform: translateY(-4px);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .level-card h3 {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+    }
+    .level-card p {
+      font-size: 0.9rem;
+      color: #9abacf;
+      line-height: 1.4;
+    }
+    .btn-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #f6bc44;
+      color: #172b38;
+      font-weight: 700;
+      padding: 12px 28px;
+      border-radius: 30px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:hover {
+      background: #ffd066;
+      transform: scale(1.03);
+    }
+    .btn-outline {
+      background: transparent;
+      border: 2px solid #3d6e8a;
+      color: #d1e7f3;
+    }
+    .btn-outline:hover {
+      background: rgba(61, 110, 138, 0.2);
+    }
+    footer {
+      margin-top: auto;
+      font-size: 0.85rem;
+      color: #6d8e9e;
+      text-align: center;
+      padding-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🎴 Tell Me!</h1>
+    <p class="subtitle">An interactive storytelling card game powered 100% natively by Rive & Luau</p>
+    <div class="badge-container">
+      <span class="badge">🎨 72 Watercolor Assets</span>
+      <span class="badge">⚡ 60 FPS Rive Canvas</span>
+      <span class="badge">⌨️ Physical & Touch Typing</span>
+      <span class="badge">📐 Adaptive Full-Bleed</span>
+      <span class="badge">🚀 Zero Heavyweight LMS</span>
+    </div>
+  </header>
+
+  <div class="preview-card">
+    <img src="assets/gameplay_walkthrough.gif" alt="Tell Me Rive Gameplay Walkthrough" />
+  </div>
+
+  <div class="grid">
+    <div class="level-card" style="border-top: 4px solid #f87171;">
+      <h3 style="color: #fca5a5;">Level 1: Rookie</h3>
+      <p>Untimed, relaxed storytelling. Flip cards and mark them done as you invent your tale.</p>
+    </div>
+    <div class="level-card" style="border-top: 4px solid #60a5fa;">
+      <h3 style="color: #93c5fd;">Level 2: Expert</h3>
+      <p>Beat the 30-second timer! Tests quick thinking and rapid improv creativity.</p>
+    </div>
+    <div class="level-card" style="border-top: 4px solid #c084fc;">
+      <h3 style="color: #d8b4fe;">Level 3: Master</h3>
+      <p>Introduces a sealed envelope with a mystery twist sentence to incorporate.</p>
+    </div>
+    <div class="level-card" style="border-top: 4px solid #fbbf24;">
+      <h3 style="color: #fde68a;">Level 4: Guru</h3>
+      <p>Full writing studio! Use your physical keyboard or quick chips, then export your story card.</p>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <a href="https://github.com/ridvanbsaglam/tell_me_story" class="btn">View on GitHub</a>
+    <a href="assets/features_grid.jpg" target="_blank" class="btn btn-outline">Explore Screen Gallery</a>
+  </div>
+
+  <footer>
+    <p>Crafted by Rıdvan Sağlam • Ported from Articulate Storyline to Native Rive & Luau</p>
+  </footer>
+
+</body>
+</html>

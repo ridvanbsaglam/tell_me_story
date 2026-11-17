@@ -1,0 +1,16 @@
+# Build outputs
+build/
+*.png
+*.jpg
+!assets/**
+!img/**
+
+# Temporary asset conversion / backups
+img_backup/
+img_backup_full_set/
+img_backup_phase2/
+img_style1_test/
+new_images/
+*.bat
+*.log
+__pycache__/
