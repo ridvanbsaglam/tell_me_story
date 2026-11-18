@@ -1,60 +1,672 @@
-# -*- coding: utf-8 -*-
-import sys
-
-source_path = r"C:\Users\rsagl\.gemini\antigravity\scratch\ridvanbsaglam.github.io\sims\tell-me-story\index.backup.html"
-target_path = r"C:\Users\rsagl\.gemini\antigravity\scratch\ridvanbsaglam.github.io\sims\tell-me-story\index.html"
-
-with open(source_path, "r", encoding="utf-8") as f:
-    text = f.read()
-
-# 1. Update meta viewport & add styles
-text = text.replace(
-    '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />',
-    '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />\n  <meta name="theme-color" content="#0c4459" />\n  <meta name="apple-mobile-web-app-capable" content="yes" />\n  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />'
-)
-
-textarea_style = """    #native-story-input {
-      position: fixed;
-      top: -9999px;
-      left: -9999px;
-      width: 1px;
-      height: 1px;
-      opacity: 0.01;
-      pointer-events: none;
-      font-size: 16px;
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c4459" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Tell Me! — A Storytelling Card Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'PatrickHand';
+      src: url('PatrickHand-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
     }
-  </style>"""
-text = text.replace('  </style>', textarea_style)
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      inset: 0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #0c4459;
+      font-family: 'PatrickHand', 'Patrick Hand', cursive, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      overscroll-behavior: none;
+    }
+    #game-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+    #native-story-input {
+      position: fixed;
+      display: none;
+      z-index: 25;
+      box-sizing: border-box;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: 'PatrickHand', 'Patrick Hand', cursive, sans-serif;
+      color: transparent;
+      caret-color: #1a1614;
+      font-size: 18px;
+      line-height: 26px;
+      padding: 8px 12px;
+      margin: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 40%, #1a576e 0%, #0d2834 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      color: #fff;
+      transition: opacity 0.35s ease;
+    }
+    #loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #f6bc44;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .load-text {
+      font-size: 1.6rem;
+      letter-spacing: 0.5px;
+      color: #fceecb;
+      margin-bottom: 6px;
+    }
+    .load-sub {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.85rem;
+      color: #93bed1;
+    }
+  </style>
+</head>
+<body>
 
-# Add textarea in body
-text = text.replace(
-    '<canvas id="game-canvas"></canvas>',
-    '<textarea id="native-story-input" autocapitalize="sentences" autocomplete="off" spellcheck="true"></textarea>\n  <canvas id="game-canvas"></canvas>'
-)
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    <div class="load-text">Shuffling Story Cards...</div>
+    <div class="load-sub" id="load-count">Loading assets...</div>
+  </div>
 
-# 2. Update VW, VH to let
-text = text.replace(
-    'const VW = 1280;\n    const VH = 720;',
-    'let VW = 1280;\n    let VH = 720;\n    let isPortrait = false;'
-)
+  <textarea id="native-story-input" autocapitalize="sentences" autocomplete="off" spellcheck="true"></textarea>
+  <canvas id="game-canvas"></canvas>
 
-# 3. Add fields in game state
-text = text.replace(
-    'hover: "",\n      scale: 1,',
-    'hover: "",\n      scale: 1,\n      isPortrait: false,\n      cardsFlippedCount: 0,\n      cardsUsedCount: 0,'
-)
+  <script>
+    // --- SUBTLE WEB AUDIO SYNTHESIZER ---
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let actx = null;
+    function playBeep(freq, type, duration, vol) {
+      try {
+        if (!actx) actx = new AudioCtx();
+        if (actx.state === 'suspended') actx.resume();
+        const osc = actx.createOscillator();
+        const g = actx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, actx.currentTime);
+        g.gain.setValueAtTime(vol || 0.14, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + duration);
+        osc.connect(g);
+        g.connect(actx.destination);
+        osc.start();
+        osc.stop(actx.currentTime + duration);
+      } catch (e) {}
+    }
+    function sndFlip() { playBeep(320, 'triangle', 0.08, 0.12); }
+    function sndClick() { playBeep(520, 'sine', 0.06, 0.10); }
+    function sndCheck() { playBeep(660, 'sine', 0.14, 0.16); setTimeout(() => playBeep(880, 'sine', 0.18, 0.16), 55); }
+    function sndTwist() { playBeep(390, 'triangle', 0.22, 0.14); setTimeout(() => playBeep(580, 'triangle', 0.26, 0.16), 100); }
+    function sndFanfare() { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => playBeep(f, 'triangle', 0.22, 0.15), i * 85)); }
 
-# 4. Background bubbles scaling
-old_draw_bg = """    function drawBackground() {
-      BUBBLES.forEach((b, i) => {
-        const idx = i + 1;
-        const dx = Math.sin(game.time * 0.35 + idx * 1.4) * 12;
-        const dy = Math.cos(game.time * 0.28 + idx * 1.9) * 9;
-        drawSketchBubble(b.x + dx, b.y + dy, b.rad);
+    // --- CONSTANTS & DATA (1:1 WITH main.luau & cards_data.luau) ---
+    let VW = 1280;
+    let VH = 720;
+    let isPortrait = false;
+    const INK_R = 26, INK_G = 22, INK_B = 20;
+    const PAPER_R = 246, PAPER_G = 241, PAPER_B = 229;
+
+    const CardsData = [
+      {
+        label: "Character",
+        items: [
+          { id: "c1_alien", name: "space cat" },
+          { id: "c1_astronaut", name: "astronaut" },
+          { id: "c1_basketball_player", name: "basketball player" },
+          { id: "c1_biography", name: "director" },
+          { id: "c1_boss", name: "boss" },
+          { id: "c1_dress", name: "princess" },
+          { id: "c1_family", name: "family" },
+          { id: "c1_festival", name: "clown" },
+          { id: "c1_investigate", name: "detective" },
+          { id: "c1_kick", name: "martial artist" },
+          { id: "c1_kung_fu", name: "kung fu master" },
+          { id: "c1_mother", name: "mother" },
+          { id: "c1_pharmacist", name: "pharmacist" },
+          { id: "c1_professions_and_jobs", name: "doctor" },
+          { id: "c1_rasta", name: "musician" },
+          { id: "c1_receptionist", name: "receptionist" },
+          { id: "c1_scientist", name: "scientist" },
+          { id: "c1_singer", name: "singer" },
+          { id: "c1_student", name: "graduate" },
+          { id: "c1_suspect", name: "suspect" },
+          { id: "c1_teacher", name: "teacher" },
+          { id: "c1_thief", name: "thief" },
+          { id: "c1_wizards", name: "wizard" },
+          { id: "c1_work", name: "architect" },
+        ]
+      },
+      {
+        label: "Place",
+        items: [
+          { id: "c2_01", name: "carousel" },
+          { id: "c2_02", name: "theater" },
+          { id: "c2_03", name: "circus" },
+          { id: "c2_04", name: "haunted house" },
+          { id: "c2_05", name: "tropical island" },
+          { id: "c2_06", name: "castle" },
+          { id: "c2_07", name: "space station" },
+          { id: "c2_government", name: "courthouse" },
+          { id: "c2_mortgage_loan", name: "bank vault" },
+          { id: "c2_stadium", name: "stadium" },
+        ]
+      },
+      {
+        label: "Weather",
+        items: [
+          { id: "c3_01", name: "sunny" },
+          { id: "c3_02", name: "rainbow" },
+          { id: "c3_03", name: "snowy night" },
+          { id: "c3_04", name: "meteor shower" },
+          { id: "c3_beach", name: "beach" },
+          { id: "c3_dust", name: "sandstorm" },
+          { id: "c3_earthquake", name: "earthquake" },
+          { id: "c3_flood", name: "flood" },
+          { id: "c3_park", name: "park" },
+          { id: "c3_rain", name: "rain" },
+          { id: "c3_storm", name: "thunderstorm" },
+          { id: "c3_sun", name: "cool sun" },
+          { id: "c3_tsunami", name: "tsunami" },
+          { id: "c3_war", name: "battle" },
+        ]
+      },
+      {
+        label: "Twist",
+        items: [
+          { id: "c4_bipolar", name: "drama masks" },
+          { id: "c4_crocodile", name: "crocodile" },
+          { id: "c4_death", name: "grim reaper" },
+          { id: "c4_fortune_telling", name: "crystal ball" },
+          { id: "c4_scorpion", name: "scorpion" },
+          { id: "c4_tent", name: "campfire" },
+          { id: "c4_thyroid", name: "lightning" },
+          { id: "c4_unicorn", name: "unicorn" },
+          { id: "c4_voodoo", name: "voodoo doll" },
+          { id: "c4_whale", name: "blue whale" },
+        ]
+      },
+      {
+        label: "Object",
+        items: [
+          { id: "c5_construction_and_tools", name: "tools" },
+          { id: "c5_evidences", name: "magnifier" },
+          { id: "c5_handcuff", name: "handcuffs" },
+          { id: "c5_lighter", name: "lighter" },
+          { id: "c5_mat", name: "treasure map" },
+          { id: "c5_mutation", name: "dna" },
+          { id: "c5_scissors", name: "scissors" },
+          { id: "c5_sewing_machine", name: "sewing machine" },
+          { id: "c5_sundae", name: "ice cream" },
+          { id: "c5_vaccine", name: "potion" },
+        ]
+      }
+    ];
+
+    const SENTENCES = [
+      "I am from a different planet.",
+      "I wish I hadn't said that.",
+      "I wish it was an accident.",
+      "She couldn't believe her luck!",
+      "That's too bad you should have thought of that before!",
+      "The shooter says goodbye to his love.",
+      "There was only one way to do it.",
+      "They found a dead body.",
+      "What day is today?",
+      "What were you thinking about?",
+      "Why are your eyes so big?",
+      "Would you like a bigger one?",
+      "You are the weakest link! Goodbye!",
+      "Hold on, I need at least a few minutes!",
+    ];
+
+    const STORY_STARTERS = [
+      "Once upon a time, ",
+      "Suddenly, out of nowhere, ",
+      "Nobody believed it when ",
+      "In the middle of the storm, ",
+      "To everyone's surprise, ",
+      "Finally, the secret was out: ",
+    ];
+
+    const CAT_COLORS = [
+      [238, 108, 104], // Character (Warm Watercolor Coral)
+      [98, 152, 224],  // Place (Cornflower Gouache Blue)
+      [94, 188, 134],  // Weather (Sage Mint Watercolor Green)
+      [166, 110, 218], // Twist (Lavender Violet Wash)
+      [244, 154, 58],  // Object (Warm Ochre / Tangerine)
+    ];
+
+    const LEVELS = [
+      {
+        id: "lvl_rookie",
+        name: "ROOKIE",
+        tag: "LEVEL 1",
+        sub: "No timer. Take your time.",
+        desc: "You will be given 5 random pictures. Start telling your story whenever you feel comfortable.",
+        col: [246, 194, 62],
+      },
+      {
+        id: "lvl_expert",
+        name: "EXPERT",
+        tag: "LEVEL 2",
+        sub: "Beat the prep clock (30/45/60s).",
+        desc: "5 random pictures and three time options to set up your story before you start telling it.",
+        col: [238, 138, 64],
+      },
+      {
+        id: "lvl_master",
+        name: "MASTER",
+        tag: "LEVEL 3",
+        sub: "Timer + Random Twist Sentence.",
+        desc: "5 random pictures, prep timer, plus one secret sentence you MUST weave into your story!",
+        col: [228, 98, 122],
+      },
+      {
+        id: "lvl_guru",
+        name: "GURU",
+        tag: "LEVEL 4",
+        sub: "Write & Showcase your story.",
+        desc: "Full challenge! After unlocking your cards and twist sentence, write and frame your story card.",
+        col: [162, 104, 218],
+      },
+    ];
+
+    const KB_ROWS = [
+      ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+      ["A", "S", "D", "F", "G", "H", "J", "K", "L", "!"],
+      ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "?"],
+    ];
+
+    const BUBBLES = [
+      { x: 145, y: 175, rad: 82 },
+      { x: 22,  y: 145, rad: 42 },
+      { x: 355, y: 265, rad: 98 },
+      { x: 865, y: 475, rad: 92 },
+      { x: 1095, y: 655, rad: 115 },
+      { x: 1185, y: 160, rad: 54 },
+    ];
+
+    // --- GAME STATE ---
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const game = {
+      images: {},
+      screen: "hello",
+      screenT: 0,
+      time: 0,
+      levelIdx: 0, // 0..3
+      phase: "cards", // "cards" | "write" | "showcase"
+      cards: [],
+      zones: [],
+      sparkles: [],
+      hover: "",
+      scale: 1,
+      isPortrait: false,
+      cardsFlippedCount: 0,
+      cardsUsedCount: 0,
+      ox: 0,
+      oy: 0,
+      winW: window.innerWidth,
+      winH: window.innerHeight,
+      toast: "",
+      toastT: 0,
+      timerMax: 0,
+      timerLeft: 0,
+      timerRunning: false,
+      sentenceIdx: 0,
+      sentenceOpen: false,
+      storyBody: "",
+      shiftOn: true,
+      showHelp: false,
+      ready: false,
+      lastTime: performance.now(),
+    };
+
+    // --- ASSET + FONT PRELOADER ---
+    const imageIds = [
+      "ui_bg", "ui_title", "ui_home", "ui_repeat", "ui_question",
+      "lvl_rookie", "lvl_expert", "lvl_master", "lvl_guru"
+    ];
+    CardsData.forEach(cat => cat.items.forEach(it => imageIds.push(it.id)));
+
+    const loadCountEl = document.getElementById('load-count');
+    const loadingScreen = document.getElementById('loading-screen');
+
+    function loadImage(id) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          game.images[id] = img;
+          resolve(true);
+        };
+        img.onerror = () => resolve(false);
+        img.src = `img/${id}.png`;
       });
-    }"""
+    }
 
-new_draw_bg = """    function drawBackground() {
+    async function bootstrap() {
+      let done = 0;
+      loadCountEl.innerText = `Loading 0 / ${imageIds.length} assets`;
+      const imgPromises = imageIds.map(id =>
+        loadImage(id).then(() => {
+          done++;
+          loadCountEl.innerText = `Loading ${done} / ${imageIds.length} assets`;
+        })
+      );
+      const fontPromise = document.fonts ? document.fonts.ready : Promise.resolve();
+      await Promise.all([...imgPromises, fontPromise]);
+
+      for (let ci = 0; ci < 5; ci++) {
+        game.cards.push({ cat: ci, item: 0, flip: 0, target: 0, used: false, pop: 0 });
+      }
+      dealAll();
+      game.ready = true;
+      loadingScreen.classList.add('hidden');
+      game.lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    // --- COLOR & PATH HELPERS (1:1 WITH main.luau) ---
+    function rgba(r, g, b, a) {
+      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${Math.max(0, Math.min(1, a / 255))})`;
+    }
+
+    function traceRoundedRect(x, y, w, h, r) {
+      const cr = Math.min(r, Math.min(w, h) * 0.5);
+      ctx.beginPath();
+      if (cr <= 0.5) {
+        ctx.rect(x, y, w, h);
+        return;
+      }
+      ctx.moveTo(x + cr, y);
+      ctx.lineTo(x + w - cr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + cr);
+      ctx.lineTo(x + w, y + h - cr);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
+      ctx.lineTo(x + cr, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - cr);
+      ctx.lineTo(x, y + cr);
+      ctx.quadraticCurveTo(x, y, x + cr, y);
+      ctx.closePath();
+    }
+
+    function fillRect(x, y, w, h, rad, r, g, b, a) {
+      traceRoundedRect(x, y, w, h, rad);
+      ctx.fillStyle = rgba(r, g, b, a);
+      ctx.fill();
+    }
+
+    function strokeRect(x, y, w, h, rad, r, g, b, a, th) {
+      traceRoundedRect(x, y, w, h, rad);
+      ctx.strokeStyle = rgba(r, g, b, a);
+      ctx.lineWidth = th;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+
+    function fillCircle(cx, cy, rad, r, g, b, a) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(0.1, rad), 0, Math.PI * 2);
+      ctx.fillStyle = rgba(r, g, b, a);
+      ctx.fill();
+    }
+
+    function strokeCircle(cx, cy, rad, r, g, b, a, th) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(0.1, rad), 0, Math.PI * 2);
+      ctx.strokeStyle = rgba(r, g, b, a);
+      ctx.lineWidth = th;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+
+    function drawSketchBox(x, y, w, h, rad, fr, fg, fb, fa, seed, withHatch) {
+      if (w <= 0 || h <= 0) return;
+      // 1. Soft dark ink wash under-shadow + diagonal hatch strokes along bottom & right edge
+      if (withHatch && w > 30 && h > 24) {
+        fillRect(x + 4, y + 6, w, h, rad, 10, 18, 24, 95);
+        ctx.beginPath();
+        const step = 8;
+        const xStart = x + rad * 0.6;
+        const xEnd = x + w - rad * 0.4;
+        const yBot = y + h;
+        let idx = 0;
+        let hx = xStart;
+        while (hx <= xEnd) {
+          const jitter = ((idx * 17 + seed * 7) % 5) - 2;
+          ctx.moveTo(hx, yBot + 1);
+          ctx.lineTo(hx - 6 + jitter * 0.4, yBot + 8 + (idx % 2) * 2);
+          hx += step;
+          idx += 1;
+        }
+        let hy = y + rad * 0.8;
+        while (hy <= y + h - rad * 0.5) {
+          ctx.moveTo(x + w + 1, hy);
+          ctx.lineTo(x + w + 7, hy + 5);
+          hy += 9;
+        }
+        ctx.strokeStyle = rgba(INK_R, INK_G, INK_B, 175);
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+
+      // 2. Main watercolor/paper body fill
+      fillRect(x, y, w, h, rad, fr, fg, fb, fa);
+
+      // 3. Subtle inner highlight stroke on top-left
+      if (w > 8 && h > 8) {
+        strokeRect(x + 2, y + 2, w - 4, h - 4, Math.max(2, rad - 2), 255, 255, 255, 65, 1.5);
+      }
+
+      // 4. Double-pass sketchy espresso ink outline
+      const ox1 = ((seed * 13) % 3) - 1;
+      const oy1 = ((seed * 29) % 3) - 1;
+      strokeRect(x - 1.2 + ox1 * 0.5, y - 0.8 + oy1 * 0.5, w + 2.4, h + 1.8, rad + 1, INK_R, INK_G, INK_B, 145, 1.4);
+      strokeRect(x + 0.8, y + 1.1, Math.max(2, w - 0.6), Math.max(2, h - 0.8), Math.max(2, rad - 0.5), INK_R, INK_G, INK_B, 110, 1.1);
+      strokeRect(x, y, w, h, rad, INK_R, INK_G, INK_B, 245, 2.4);
+    }
+
+    function drawSketchCircle(cx, cy, rad, fr, fg, fb, fa, inkAlpha) {
+      if (fa > 0) {
+        fillCircle(cx + 2, cy + 3, rad, 10, 18, 24, 80);
+        fillCircle(cx, cy, rad, fr, fg, fb, fa);
+      }
+      strokeCircle(cx - 0.9, cy + 0.7, rad + 1.2, INK_R, INK_G, INK_B, Math.floor(inkAlpha * 0.55), 1.3);
+      strokeCircle(cx + 0.7, cy - 0.8, Math.max(2, rad - 0.8), INK_R, INK_G, INK_B, Math.floor(inkAlpha * 0.45), 1.1);
+      strokeCircle(cx, cy, rad, INK_R, INK_G, INK_B, inkAlpha, 2.3);
+    }
+
+    function drawSketchBubble(cx, cy, rad) {
+      fillCircle(cx, cy, rad, 255, 255, 255, 14);
+      strokeCircle(cx, cy, rad, 255, 255, 255, 78, 1.6);
+      strokeCircle(cx + 2.2, cy - 1.8, rad * 0.97, 255, 255, 255, 48, 1.1);
+      ctx.beginPath();
+      ctx.moveTo(cx - rad * 0.55, cy - rad * 0.35);
+      ctx.bezierCurveTo(
+        cx - rad * 0.35, cy - rad * 0.65,
+        cx - rad * 0.05, cy - rad * 0.68,
+        cx + rad * 0.15, cy - rad * 0.52
+      );
+      ctx.strokeStyle = rgba(255, 255, 255, 95);
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    function label(str, x, y, size, cr, cg, cb, ca, align) {
+      if (!str || ca <= 1) return;
+      ctx.save();
+      ctx.fillStyle = rgba(cr, cg, cb, Math.floor(ca));
+      ctx.font = `${(size * 1.15).toFixed(2)}px 'PatrickHand', 'Patrick Hand', cursive`;
+      ctx.textAlign = align || "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(str, x, y);
+      ctx.restore();
+    }
+
+    function drawParagraph(str, x, y, maxCharsPerLine, lineH, size, cr, cg, cb, ca, align) {
+      if (!str) return 0;
+      const paras = str.split("\n");
+      const lines = [];
+      for (const p of paras) {
+        const words = p.trim().length === 0 ? [""] : p.split(/\s+/);
+        let cur = "";
+        for (const w of words) {
+          if (cur.length === 0) {
+            cur = w;
+          } else if ((cur.length + 1 + w.length) <= maxCharsPerLine) {
+            cur = cur + " " + w;
+          } else {
+            lines.push(cur);
+            cur = w;
+          }
+        }
+        lines.push(cur);
+      }
+      for (let i = 0; i < lines.length; i++) {
+        label(lines[i], x, y + i * lineH, size, cr, cg, cb, ca, align);
+      }
+      return lines.length;
+    }
+
+    function clamp01(v) {
+      return Math.min(1, Math.max(0, v));
+    }
+
+    function easeOutBack(t) {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      const u = t - 1;
+      return 1 + c3 * u * u * u + c1 * u * u;
+    }
+
+    function drawImg(id, cx, cy, w, sx, opacity) {
+      const img = game.images[id];
+      if (!img || !img.complete || img.naturalWidth <= 0 || opacity <= 0.01) return;
+      const iw = img.naturalWidth;
+      const ih = img.naturalHeight;
+      const k = w / Math.max(iw, ih);
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.translate(cx, cy);
+      ctx.scale(k * sx, k);
+      ctx.translate(-iw * 0.5, -ih * 0.5);
+      ctx.drawImage(img, 0, 0, iw, ih);
+      ctx.restore();
+    }
+
+    function zone(id, x, y, w, h) {
+      game.zones.push({ id, x, y, w, h });
+    }
+
+    function spawnBurst(cx, cy, count) {
+      for (let i = 1; i <= count; i++) {
+        const ang = (i / count) * 6.28318 + Math.random() * 0.5;
+        const spd = 80 + Math.random() * 180;
+        const c = CAT_COLORS[i % CAT_COLORS.length];
+        game.sparkles.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 60,
+          rad: 4 + Math.random() * 5,
+          r: c[0],
+          g: c[1],
+          b: c[2],
+          life: 0,
+          maxLife: 0.7 + Math.random() * 0.5,
+        });
+      }
+    }
+
+    function dealCard(card, ci) {
+      const list = CardsData[card.cat].items;
+      const n = list.length;
+      const prev = card.item;
+      let pick = Math.floor(Math.random() * n);
+      if (n > 1 && pick === prev) pick = (pick + 1) % n;
+      card.item = pick;
+      card.flip = 0;
+      card.target = 0;
+      card.used = false;
+      card.pop = -0.07 * ci;
+    }
+
+    function dealAll() {
+      game.cards.forEach((c, i) => dealCard(c, i));
+      const prevS = game.sentenceIdx;
+      let nextS = Math.floor(Math.random() * SENTENCES.length);
+      if (SENTENCES.length > 1 && nextS === prevS) nextS = (nextS + 1) % SENTENCES.length;
+      game.sentenceIdx = nextS;
+      game.sentenceOpen = false;
+      game.timerRunning = false;
+      game.timerLeft = 0;
+      game.timerMax = 0;
+      game.phase = "cards";
+    }
+
+    function startLevel(idx) {
+      game.levelIdx = idx;
+      game.screen = "play";
+      game.screenT = 0;
+      dealAll();
+    }
+
+    function toast(msg) {
+      game.toast = msg;
+      game.toastT = 2.4;
+    }
+
+    function cleanItemLabel(raw) {
+      if (/^\d+$/.test(raw)) return "SCENE";
+      if (raw.length > 12) return raw.slice(0, 11).toUpperCase() + ".";
+      return raw.toUpperCase();
+    }
+
+    // --- UI COMPONENTS ---
+    function drawBackground() {
       const sx = VW / 1280;
       const sy = VH / 720;
       BUBBLES.forEach((b, i) => {
@@ -63,19 +675,20 @@ new_draw_bg = """    function drawBackground() {
         const dy = Math.cos(game.time * 0.28 + idx * 1.9) * 9;
         drawSketchBubble(b.x * sx + dx, b.y * sy + dy, b.rad * (isPortrait ? 1.15 : 1.0));
       });
-    }"""
-text = text.replace(old_draw_bg, new_draw_bg)
+    }
 
-# 5. Extract and replace screens block
-# Let's locate from `// --- SCREENS (1:1 WITH main.luau) ---` to `function drawSparkles()`
-screen_start = text.find('    // --- SCREENS (1:1 WITH main.luau) ---')
-sparkles_start = text.find('    function drawSparkles() {')
+    function pill(id, text, cx, cy, w, h, cr, cg, cb, tr, tg, tb, fsize) {
+      const hov = game.hover === id;
+      const s = hov ? 1.05 : 1.0;
+      const ww = w * s;
+      const hh = h * s;
+      const seed = id.charCodeAt(0) || 7;
+      drawSketchBox(cx - ww / 2, cy - hh / 2, ww, hh, hh * 0.48, cr, cg, cb, 255, seed, true);
+      label(text, cx, cy, (fsize || 18) * s, tr, tg, tb, 255, "center");
+      zone(id, cx - w / 2, cy - h / 2, w, h);
+    }
 
-if screen_start == -1 or sparkles_start == -1:
-    print("Error finding screen positions!")
-    sys.exit(1)
-
-new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LANDSCAPE) ---
+    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LANDSCAPE) ---
     function drawSingleCard(c, i, cx, cy, cardW, cardH, scaleMult) {
       if (c.target > 0.5) game.cardsFlippedCount++;
       if (c.used) game.cardsUsedCount++;
@@ -305,7 +918,7 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
 
       drawSketchCircle(48, 43, 25, PAPER_R, PAPER_G, PAPER_B, 255, 245);
       drawImg("ui_home", 48, 43, 25, 1, 1);
-      zone("home", 20, 15, 56, 56);
+      zone("home", 15, 12, 66, 62);
 
       drawImg(lv.id, 114, 43, 56, 1, 1);
       label(`${lv.tag} - ${lv.name}`, 156, 33, 26, 255, 255, 255, 255, "left");
@@ -323,14 +936,14 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
 
       drawSketchCircle(46, 48, 25, PAPER_R, PAPER_G, PAPER_B, 255, 245);
       drawImg("ui_home", 46, 48, 25, 1, 1);
-      zone("home", 18, 20, 56, 56);
+      zone("home", 12, 16, 68, 64);
 
       drawImg(lv.id, 106, 48, 50, 1, 1);
       label(`${lv.tag}`, 142, 38, 19, 255, 255, 255, 255, "left");
       label(lv.name, 142, 64, 15, 235, 245, 250, 235, "left");
 
-      pill("shuffle", "New Cards", VW - 165, 48, 110, 42, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 15);
-      pill("other", "Levels", VW - 55, 48, 85, 42, 246, 188, 68, INK_R, INK_G, INK_B, 15);
+      pill("shuffle", "New Cards", VW - 175, 48, 120, 44, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 15);
+      pill("other", "Levels", VW - 58, 48, 92, 44, 246, 188, 68, INK_R, INK_G, INK_B, 15);
     }
 
     function drawTopBar() {
@@ -419,6 +1032,7 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
             label("TWIST SENTENCE", rx + 87, barY - 33, 12, INK_R, INK_G, INK_B, 255, "center");
             label(`"${SENTENCES[game.sentenceIdx]}"`, rx + rw / 2, barY + 8, 19, INK_R, INK_G, INK_B, 255, "center");
             pill("twist_next", "New Sentence", rx + rw - 88, barY - 33, 138, 28, 246, 188, 68, INK_R, INK_G, INK_B, 13);
+            zone("twist_next", rx, barY - 62, rw, 124);
           }
         }
       }
@@ -469,26 +1083,28 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
       const used = game.cardsUsedCount;
 
       if (game.levelIdx === 1) {
+        // Level 2 Timer
         const barY = 175;
         drawSketchBox(36, barY - 60, 648, 120, 22, PAPER_R, PAPER_G, PAPER_B, 255, 41, true);
         if (game.timerMax === 0) {
           label("Prep time challenge:", VW / 2, barY - 24, 19, INK_R, INK_G, INK_B, 255, "center");
-          pill("tm_30", "30 sec.", VW / 2 - 175, barY + 22, 140, 42, 94, 188, 134, INK_R, INK_G, INK_B, 16);
-          pill("tm_45", "45 sec.", VW / 2, barY + 22, 140, 42, 98, 152, 224, INK_R, INK_G, INK_B, 16);
-          pill("tm_60", "60 sec.", VW / 2 + 175, barY + 22, 140, 42, 246, 188, 68, INK_R, INK_G, INK_B, 16);
+          pill("tm_30", "30 sec.", VW / 2 - 175, barY + 22, 140, 44, 94, 188, 134, INK_R, INK_G, INK_B, 16);
+          pill("tm_45", "45 sec.", VW / 2, barY + 22, 140, 44, 98, 152, 224, INK_R, INK_G, INK_B, 16);
+          pill("tm_60", "60 sec.", VW / 2 + 175, barY + 22, 140, 44, 246, 188, 68, INK_R, INK_G, INK_B, 16);
         } else if (game.timerLeft > 0) {
           const secs = Math.ceil(game.timerLeft);
-          label(`PREP TIME: ${secs}s LEFT`, 200, barY - 20, 20, 215, 75, 70, 255, "center");
+          label(`PREP TIME: ${secs}s LEFT`, 190, barY - 20, 20, 215, 75, 70, 255, "center");
           const pw = 340, px = 54;
           drawSketchBox(px, barY + 12, pw, 16, 8, 232, 226, 212, 255, 12, false);
           const ratio = clamp01(game.timerLeft / game.timerMax);
           fillRect(px + 2, barY + 14, Math.max(12, (pw - 4) * ratio), 12, 6, 94, 188, 134, 255);
-          pill("tm_skip", "I'm Ready!", 550, barY + 6, 180, 46, 246, 188, 68, INK_R, INK_G, INK_B, 16);
+          pill("tm_skip", "I'm Ready!", 550, barY + 6, 180, 48, 246, 188, 68, INK_R, INK_G, INK_B, 16);
         } else {
-          label("Time is up! Let's hear your story!", 250, barY, 20, 45, 135, 85, 255, "center");
-          pill("tm_reset", "Reset Timer", 550, barY, 160, 42, 246, 188, 68, INK_R, INK_G, INK_B, 16);
+          label("Time is up! Let's hear your story!", 240, barY, 20, 45, 135, 85, 255, "center");
+          pill("tm_reset", "Reset Timer", 550, barY, 165, 46, 246, 188, 68, INK_R, INK_G, INK_B, 16);
         }
       } else if (game.levelIdx >= 2) {
+        // Level 3 & 4 Twist Sentence
         const barY = 175;
         const rw = 648, rx = 36;
         drawSketchBox(rx, barY - 60, rw, 120, 22, 252, 243, 215, 255, 67, true);
@@ -502,7 +1118,8 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
           drawSketchBox(rx + 18, barY - 46, 138, 26, 13, 238, 108, 104, 255, 3, false);
           label("TWIST SENTENCE", rx + 87, barY - 33, 12, INK_R, INK_G, INK_B, 255, "center");
           label(`"${SENTENCES[game.sentenceIdx]}"`, rx + rw / 2, barY + 10, 18, INK_R, INK_G, INK_B, 255, "center");
-          pill("twist_next", "New Sentence", rx + rw - 88, barY - 33, 138, 28, 246, 188, 68, INK_R, INK_G, INK_B, 13);
+          pill("twist_next", "New Sentence", rx + rw - 92, barY - 32, 146, 36, 246, 188, 68, INK_R, INK_G, INK_B, 14);
+          zone("twist_next", rx, barY - 60, rw, 120);
         }
       }
 
@@ -519,12 +1136,12 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
 
       if (game.levelIdx === 3) {
         pill("go_write", "Write Your Story Now  ->", VW / 2, footY + 65, 480, 56, 246, 188, 68, INK_R, INK_G, INK_B, 20);
-        pill("flip_all", "Flip All", VW / 2 - 130, footY + 135, 230, 48, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
-        pill("shuffle", "New Cards", VW / 2 + 130, footY + 135, 230, 48, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
+        pill("flip_all", "Flip All", VW / 2 - 130, footY + 135, 230, 50, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 18);
+        pill("shuffle", "New Cards", VW / 2 + 130, footY + 135, 230, 50, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 18);
       } else {
-        pill("flip_all", "Flip All", VW / 2 - 135, footY + 65, 240, 50, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 18);
-        pill("mark_done", "It Is Done!", VW / 2 + 135, footY + 65, 240, 50, 112, 196, 132, INK_R, INK_G, INK_B, 18);
-        pill("shuffle", "Shuffle 5 New Cards", VW / 2, footY + 132, 340, 46, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
+        pill("flip_all", "Flip All", VW / 2 - 135, footY + 65, 240, 52, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 18);
+        pill("mark_done", "It Is Done!", VW / 2 + 135, footY + 65, 240, 52, 112, 196, 132, INK_R, INK_G, INK_B, 18);
+        pill("shuffle", "Shuffle 5 New Cards", VW / 2, footY + 135, 340, 48, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
       }
     }
 
@@ -631,7 +1248,7 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
       drawSketchBox(px, py, pw, ph, 22, PAPER_R, PAPER_G, PAPER_B, 255, 31, true);
       fillRect(px + 3, py + 3, pw - 6, 40, 18, 166, 110, 218, 240);
       fillRect(px + 3, py + 43, pw - 6, 2, 0, INK_R, INK_G, INK_B, 220);
-      label("STORY NOTEPAD (Tap to type with your keyboard)", px + 20, py + 23, 15, INK_R, INK_G, INK_B, 255, "left");
+      label("STORY NOTEPAD (Tap to type your story)", px + 20, py + 23, 15, INK_R, INK_G, INK_B, 255, "left");
 
       const blink = (Math.floor(game.time * 2) % 2 === 0) ? "|" : "";
       const displayStr = game.storyBody + blink;
@@ -644,7 +1261,7 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
       zone("notepad_tap", px, py, pw, ph);
 
       label(`${game.storyBody.length} / 420 chars`, px + 24, py + ph - 22, 14, 110, 100, 90, 255, "left");
-      pill("txt_clear", "Clear Text", px + pw - 75, py + ph - 22, 110, 30, 238, 108, 104, INK_R, INK_G, INK_B, 14);
+      pill("txt_clear", "Clear Text", px + pw - 75, py + ph - 22, 110, 32, 238, 108, 104, INK_R, INK_G, INK_B, 14);
 
       const qy = 642;
       label("QUICK INSERT CHIPS (1-Tap Add):", sx + 10, qy + 14, 16, 255, 255, 255, 245, "left");
@@ -655,13 +1272,13 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
         const rowIdx = Math.floor(i / 2);
         const bx = sx + colIdx * (stColW + 12);
         const by = qy + 36 + rowIdx * 42;
-        pill("ins_start_" + (i + 1), "+ " + st, bx + stColW / 2, by + 18, stColW, 34, 252, 249, 242, INK_R, INK_G, INK_B, 13.5);
+        pill("ins_start_" + (i + 1), "+ " + st, bx + stColW / 2, by + 18, stColW, 36, 252, 249, 242, INK_R, INK_G, INK_B, 13.5);
       });
 
-      pill("ins_twist", "+ Insert Twist Sentence", VW / 2, qy + 144, sw, 38, 246, 188, 68, INK_R, INK_G, INK_B, 15);
+      pill("ins_twist", "+ Insert Twist Sentence", VW / 2, qy + 144, sw, 40, 246, 188, 68, INK_R, INK_G, INK_B, 15);
 
       pill("go_showcase", "Create Story Card (Save / Share) ->", VW / 2, 850, 560, 58, 112, 196, 132, INK_R, INK_G, INK_B, 20);
-      pill("back_cards", "<- Back to Cards", VW / 2, 922, 340, 46, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
+      pill("back_cards", "<- Back to Cards", VW / 2, 924, 340, 48, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
     }
 
     function drawWriteStudio() {
@@ -709,9 +1326,9 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
 
       label("Take a screenshot of this card to save & share your story with friends!", VW / 2, py + ph - 16, 14, 95, 85, 75, 255, "center");
 
-      pill("edit_story", "<- Edit Story", VW / 2 - 260, 662, 210, 46, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
-      pill("celebrate", "Celebrate!", VW / 2, 662, 210, 46, 246, 188, 68, INK_R, INK_G, INK_B, 17);
-      pill("other", "Try Another Level", VW / 2 + 260, 662, 230, 46, 112, 196, 132, INK_R, INK_G, INK_B, 17);
+      pill("edit_story", "<- Edit Story", VW / 2 - 260, 662, 210, 48, PAPER_R, PAPER_G, PAPER_B, INK_R, INK_G, INK_B, 17);
+      pill("celebrate", "Celebrate!", VW / 2, 662, 210, 48, 246, 188, 68, INK_R, INK_G, INK_B, 17);
+      pill("other", "Try Another Level", VW / 2 + 260, 662, 230, 48, 112, 196, 132, INK_R, INK_G, INK_B, 17);
     }
 
     function drawShowcaseCardPortrait() {
@@ -762,18 +1379,68 @@ new_screens_code = '''    // --- SINGLE CARD RENDERER (UNIFIED FOR PORTRAIT & LA
       if (isPortrait) drawShowcaseCardPortrait();
       else drawShowcaseCardLandscape();
     }
-'''
+    function drawSparkles() {
+      game.sparkles.forEach(sp => {
+        const a = clamp01(1 - sp.life / sp.maxLife);
+        fillCircle(sp.x, sp.y, sp.rad * a, sp.r, sp.g, sp.b, Math.floor(255 * a));
+      });
+    }
 
-text = text[:screen_start] + new_screens_code + text[sparkles_start:]
+    // --- MAIN TICK & RENDER ---
+    function loop(now) {
+      requestAnimationFrame(loop);
+      if (!game.ready) return;
+      const dt = Math.min((now - game.lastTime) / 1000, 0.1);
+      game.lastTime = now;
 
-# 6. Update render() logic to adapt to aspect ratio and portrait resolution
-old_render_part = """      game.winW = cssW;
-      game.winH = cssH;
-      game.scale = Math.min(cssW / VW, cssH / VH);
-      game.ox = (cssW - VW * game.scale) * 0.5;
-      game.oy = (cssH - VH * game.scale) * 0.5;"""
+      game.time += dt;
+      game.screenT += dt;
+      game.toastT = Math.max(0, game.toastT - dt);
 
-new_render_part = """      isPortrait = (cssW / cssH) < 1.15;
+      if (game.timerRunning && game.timerLeft > 0) {
+        game.timerLeft = Math.max(0, game.timerLeft - dt);
+        if (game.timerLeft <= 0) {
+          game.timerRunning = false;
+          sndFanfare();
+          spawnBurst(VW / 2, 180, 22);
+        }
+      }
+
+      game.cards.forEach(c => {
+        c.pop += dt;
+        if (c.flip < c.target) c.flip = Math.min(c.target, c.flip + dt / 0.42);
+        else if (c.flip > c.target) c.flip = Math.max(c.target, c.flip - dt / 0.42);
+      });
+
+      for (let i = game.sparkles.length - 1; i >= 0; i--) {
+        const sp = game.sparkles[i];
+        sp.life += dt;
+        sp.x += sp.vx * dt;
+        sp.y += sp.vy * dt;
+        sp.vy += 240 * dt;
+        if (sp.life >= sp.maxLife) game.sparkles.splice(i, 1);
+      }
+
+      render();
+    }
+
+    function render() {
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = window.innerWidth;
+      const cssH = window.innerHeight;
+      const targetW = Math.round(cssW * dpr);
+      const targetH = Math.round(cssH * dpr);
+
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      isPortrait = (cssW / cssH) < 1.15;
       VW = isPortrait ? 720 : 1280;
       VH = isPortrait ? 1280 : 720;
 
@@ -782,18 +1449,145 @@ new_render_part = """      isPortrait = (cssW / cssH) < 1.15;
       game.isPortrait = isPortrait;
       game.scale = Math.min(cssW / VW, cssH / VH);
       game.ox = (cssW - VW * game.scale) * 0.5;
-      game.oy = (cssH - VH * game.scale) * 0.5;"""
+      game.oy = (cssH - VH * game.scale) * 0.5;
 
-text = text.replace(old_render_part, new_render_part)
+      const nativeInput = document.getElementById("native-story-input");
+      if (nativeInput) {
+        if (game.screen === "play" && game.phase === "write") {
+          const sw = isPortrait ? (VW - 48) : 720;
+          const sx = isPortrait ? 24 : 48;
+          const sy = isPortrait ? 246 : 184;
+          const sh = isPortrait ? 380 : 310;
+          const topPad = isPortrait ? 52 : 48;
+          const botPad = isPortrait ? 122 : 98;
+          nativeInput.style.display = "block";
+          nativeInput.style.left = (game.ox + (sx + 20) * game.scale) + "px";
+          nativeInput.style.top = (game.oy + (sy + topPad) * game.scale) + "px";
+          nativeInput.style.width = ((sw - 40) * game.scale) + "px";
+          nativeInput.style.height = ((sh - topPad - botPad) * game.scale) + "px";
+          nativeInput.style.pointerEvents = "auto";
+        } else {
+          nativeInput.style.display = "none";
+          nativeInput.style.pointerEvents = "none";
+          if (document.activeElement === nativeInput) {
+            nativeInput.blur();
+          }
+        }
+      }
 
-# 7. Update pointerdown to handle native text input and keyboard sync
-old_pointerdown_top = """    canvas.addEventListener('pointerdown', (e) => {
+      // Full-bleed petrol-teal base + watercolor background cover scaling
+      ctx.fillStyle = "#0e4d64";
+      ctx.fillRect(0, 0, cssW, cssH);
+
+      const bgImg = game.images["ui_bg"];
+      if (bgImg && bgImg.complete && bgImg.naturalWidth > 0 && cssW > 0 && cssH > 0) {
+        ctx.save();
+        const s = Math.max(cssW / bgImg.naturalWidth, cssH / bgImg.naturalHeight);
+        const bgOx = (cssW - bgImg.naturalWidth * s) * 0.5;
+        const bgOy = (cssH - bgImg.naturalHeight * s) * 0.5;
+        ctx.drawImage(bgImg, bgOx, bgOy, bgImg.naturalWidth * s, bgImg.naturalHeight * s);
+        ctx.restore();
+      }
+
+      // Centered 1280x720 artboard
+      game.zones = [];
+      ctx.save();
+      ctx.translate(game.ox, game.oy);
+      ctx.scale(game.scale, game.scale);
+
+      drawBackground();
+
+      if (game.screen === "hello") {
+        drawHello();
+        if (game.showHelp) drawHelpModal();
+      } else {
+        if (game.phase === "write") drawWriteStudio();
+        else if (game.phase === "showcase") drawShowcaseCard();
+        else drawPlayStage();
+      }
+
+      drawSparkles();
+
+      if (game.toastT > 0) {
+        const toastY = isPortrait ? 108 : 662;
+        const toastW = isPortrait ? 560 : 460;
+        drawSketchBox(VW / 2 - toastW / 2, toastY - 22, toastW, 46, 23, PAPER_R, PAPER_G, PAPER_B, 255, 99, false);
+        label(game.toast, VW / 2, toastY + 1, 18, INK_R, INK_G, INK_B, 255, "center");
+      }
+
+      ctx.restore();
+    }
+
+    // --- INPUT HANDLING (ROBUST CROSS-DEVICE NORMALIZATION) ---
+    function getVirtualPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+      if (clientX === undefined) {
+        const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+        if (t) {
+          clientX = t.clientX;
+          clientY = t.clientY;
+        } else {
+          clientX = 0;
+          clientY = 0;
+        }
+      }
+
+      // Self-normalizing against DOM bounds to prevent any viewport/toolbar scaling drift
+      const normX = (clientX - rect.left) / (rect.width || 1);
+      const normY = (clientY - rect.top) / (rect.height || 1);
+
+      const cssX = normX * game.winW;
+      const cssY = normY * game.winH;
+
+      return {
+        x: (cssX - game.ox) / game.scale,
+        y: (cssY - game.oy) / game.scale,
+      };
+    }
+
+    function hit(pos) {
+      // 10px generous padding in virtual coordinates for comfortable, forgiving touch on phones
+      const pad = isPortrait ? 10 : 4;
+      for (let i = game.zones.length - 1; i >= 0; i--) {
+        const z = game.zones[i];
+        if (
+          pos.x >= z.x - pad &&
+          pos.x <= z.x + z.w + pad &&
+          pos.y >= z.y - pad &&
+          pos.y <= z.y + z.h + pad
+        ) {
+          return z.id;
+        }
+      }
+      return "";
+    }
+
+    canvas.addEventListener('pointermove', (e) => {
       if (!game.ready) return;
-      const pos = getVirtualPos(e);
-      const id = hit(pos);
-      if (id === "") return;"""
+      const id = hit(getVirtualPos(e));
+      game.hover = id;
+      canvas.style.cursor = id ? "pointer" : "default";
+    });
 
-new_pointerdown_top = """    const nativeInput = document.getElementById("native-story-input");
+    function appendStoryText(str) {
+      if (game.storyBody.length < 420) {
+        game.storyBody += str;
+        syncNativeInput();
+      }
+    }
+
+    function backspaceOneChar() {
+      const chars = Array.from(game.storyBody);
+      if (chars.length > 0) {
+        chars.pop();
+        game.storyBody = chars.join('');
+        syncNativeInput();
+      }
+    }
+
+    const nativeInput = document.getElementById("native-story-input");
     if (nativeInput) {
       nativeInput.addEventListener("input", () => {
         game.storyBody = nativeInput.value.slice(0, 420);
@@ -806,40 +1600,175 @@ new_pointerdown_top = """    const nativeInput = document.getElementById("native
       }
     }
 
-    canvas.addEventListener('pointerdown', (e) => {
+    function handleInputDown(e) {
       if (!game.ready) return;
       const pos = getVirtualPos(e);
       const id = hit(pos);
 
-      if (id === "notepad_tap" || (game.screen === "play" && game.phase === "write" && pos.y >= 240 && pos.y <= 600)) {
+      if (id === "notepad_tap" || (game.screen === "play" && game.phase === "write" && pos.y >= 240 && pos.y <= (isPortrait ? 550 : 430) && id !== "txt_clear")) {
         if (nativeInput) {
           syncNativeInput();
           nativeInput.focus();
         }
       }
 
-      if (id === "") return;"""
+      if (id === "") return;
 
-text = text.replace(old_pointerdown_top, new_pointerdown_top)
+      if (id === "btn_help") {
+        game.showHelp = true;
+        sndClick();
+      } else if (id === "close_help") {
+        game.showHelp = false;
+        sndClick();
+      } else if (id === "home" || id === "other") {
+        game.screen = "hello";
+        game.screenT = 0;
+        game.showHelp = false;
+        sndClick();
+      } else if (id === "shuffle") {
+        dealAll();
+        toast("5 new story cards dealt!");
+        sndFlip();
+      } else if (id === "flip_all") {
+        game.cards.forEach(c => { c.target = 1; });
+        sndFlip();
+      } else if (id === "mark_done") {
+        game.cards.forEach(c => { c.target = 1; c.used = true; });
+        spawnBurst(VW / 2, 360, 32);
+        toast("Awesome story! Try another level or shuffle new cards!");
+        sndFanfare();
+      } else if (id === "tm_30" || id === "tm_45" || id === "tm_60") {
+        const sec = parseInt(id.slice(3), 10);
+        game.timerMax = sec;
+        game.timerLeft = sec;
+        game.timerRunning = true;
+        sndClick();
+      } else if (id === "tm_skip") {
+        game.timerLeft = 0;
+        game.timerRunning = false;
+        game.cards.forEach(c => { c.target = 1; });
+        spawnBurst(VW / 2, 220, 20);
+        sndFlip();
+      } else if (id === "tm_reset") {
+        game.timerMax = 0;
+        game.timerLeft = 0;
+        game.timerRunning = false;
+        sndClick();
+      } else if (id === "twist_reveal") {
+        game.sentenceOpen = true;
+        spawnBurst(920, 175, 24);
+        sndTwist();
+      } else if (id === "twist_next") {
+        game.sentenceIdx = (game.sentenceIdx + 1) % SENTENCES.length;
+        spawnBurst(920, 175, 16);
+        sndTwist();
+      } else if (id === "go_write") {
+        game.cards.forEach(c => { c.target = 1; });
+        game.sentenceOpen = true;
+        game.phase = "write";
+        sndClick();
+      } else if (id === "back_cards" || id === "edit_story") {
+        game.phase = (id === "edit_story") ? "write" : "cards";
+        sndClick();
+      } else if (id === "go_showcase") {
+        game.phase = "showcase";
+        spawnBurst(VW / 2, 260, 36);
+        sndFanfare();
+      } else if (id === "celebrate") {
+        spawnBurst(VW / 2, 300, 40);
+        sndFanfare();
+      } else if (id === "txt_clear") {
+        game.storyBody = "";
+        syncNativeInput();
+        sndClick();
+      } else if (id === "ins_twist") {
+        const sp = (game.storyBody.length > 0 && !game.storyBody.endsWith(" ")) ? " " : "";
+        appendStoryText(`${sp}"${SENTENCES[game.sentenceIdx]}" `);
+        sndTwist();
+      } else if (id.startsWith("ins_start_")) {
+        const idx = (parseInt(id.slice(10), 10) || 1) - 1;
+        appendStoryText(STORY_STARTERS[idx]);
+        sndClick();
+      } else if (id === "key_space") {
+        appendStoryText(" ");
+        sndClick();
+      } else if (id === "key_back") {
+        backspaceOneChar();
+        sndClick();
+      } else if (id === "key_shift") {
+        game.shiftOn = !game.shiftOn;
+        sndClick();
+      } else if (id.startsWith("key_")) {
+        const ch = id.slice(4);
+        appendStoryText(ch);
+        if (game.shiftOn) game.shiftOn = false;
+        sndClick();
+      } else if (id.startsWith("card")) {
+        const i = (parseInt(id.slice(4), 10) || 1) - 1;
+        const c = game.cards[i];
+        if (!c) return;
+        if (game.phase === "write") {
+          const item = CardsData[c.cat].items[c.item];
+          const word = cleanItemLabel(item.name).toLowerCase();
+          appendStoryText(word + " ");
+          sndClick();
+        } else {
+          if (c.target < 0.5) {
+            c.target = 1;
+            sndFlip();
+          } else if (c.flip > 0.85) {
+            c.used = !c.used;
+            if (c.used) {
+              spawnBurst(VW / 2, 380, 14);
+              sndCheck();
+            } else {
+              sndClick();
+            }
+          }
+        }
+      } else if (id.startsWith("lv")) {
+        const idx = (parseInt(id.slice(2), 10) || 1) - 1;
+        startLevel(idx);
+        sndClick();
+      }
+    }
 
-# Update appendStoryText and backspaceOneChar to sync
-text = text.replace(
-    'function appendStoryText(str) {\n      if (game.storyBody.length < 420) {\n        game.storyBody += str;\n      }\n    }',
-    'function appendStoryText(str) {\n      if (game.storyBody.length < 420) {\n        game.storyBody += str;\n        syncNativeInput();\n      }\n    }'
-)
+    let lastDownTs = 0;
+    function onUniversalDown(e) {
+      const now = Date.now();
+      if (now - lastDownTs < 45) return;
+      lastDownTs = now;
+      handleInputDown(e);
+    }
 
-text = text.replace(
-    "chars.pop();\n        game.storyBody = chars.join('');",
-    "chars.pop();\n        game.storyBody = chars.join('');\n        syncNativeInput();"
-)
+    canvas.addEventListener('pointerdown', onUniversalDown);
+    canvas.addEventListener('touchstart', onUniversalDown, { passive: true });
 
-text = text.replace(
-    'game.storyBody = "";\n        sndClick();',
-    'game.storyBody = "";\n        syncNativeInput();\n        sndClick();'
-)
+    window.addEventListener('keydown', (e) => {
+      if (!game.ready) return;
+      if (e.key === "Escape" && game.showHelp) {
+        game.showHelp = false;
+        e.preventDefault();
+        return;
+      }
+      if (game.screen === "play" && game.phase === "write") {
+        if (e.key === "Backspace") {
+          backspaceOneChar();
+          sndClick();
+          e.preventDefault();
+        } else if (e.key === "Enter") {
+          appendStoryText("\n");
+          sndClick();
+          e.preventDefault();
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          appendStoryText(e.key);
+          sndClick();
+          e.preventDefault();
+        }
+      }
+    });
 
-# Write to target_path
-with open(target_path, "w", encoding="utf-8") as f:
-    f.write(text)
-
-print("Responsive index.html successfully generated! Size:", len(text))
+    bootstrap();
+  </script>
+</body>
+</html>
